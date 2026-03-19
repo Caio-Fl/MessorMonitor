@@ -1,0 +1,22 @@
+{
+  "name": "messor-monitor",
+  "version": "1.0.0",
+  "main": "./build/electron/main.js",
+  "scripts": {
+    "dump": "stlite-desktop dump",
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "stlite": {
+    "desktop": {
+      "files": ["main_dashboard.py"],
+      "entrypoint": "main_dashboard.py",
+      "dependencies": ["plotly", "pandas", "numpy", "websockets"]
+    }
+  },
+  "devDependencies": {
+    "@stlite/desktop": "latest",
+    "electron": "latest",
+    "electron-builder": "latest"
+  }
+}
