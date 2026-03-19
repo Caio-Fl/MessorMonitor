@@ -8,19 +8,18 @@ from datetime import datetime
 PORT = int(os.environ.get("PORT", 9002))
 BASE_DIR = "DataBank"
 
-# Versão ultra-compatível da função de verificação
-async def process_request(*args, **kwargs):
+async def process_request(*args):
     """
-    args[0] costuma ser a conexão ou o request dependendo da versão.
-    Usamos *args para evitar o erro de 'positional arguments'.
+    Captura as verificações de saúde (Health Checks) do Render.
+    Retorna uma resposta HTTP 200 OK sem depender de métodos do objeto Request.
     """
-    # Tenta pegar o request independente da posição
+    # Nas versões novas, o request é o segundo argumento se o primeiro for a conexão
     request = args[1] if len(args) > 1 else args[0]
     
-    # Se for uma requisição de monitoramento do Render (HEAD ou GET sem upgrade)
-    # respondemos apenas um OK para o serviço ficar online
+    # Se não for um pedido de WebSocket (Upgrade), responde HTTP 200
     if request.headers.get("Upgrade") != "websocket":
-        return request.respond(websockets.http.HTTPStatus.OK, "OK\n")
+        # Retornamos (Status, Headers, Body)
+        return (websockets.http.HTTPStatus.OK, [], b"OK\n")
     return None
 
 def save_raw_json(data):
@@ -40,12 +39,12 @@ def save_raw_json(data):
         
         with open(path, 'w') as f:
             json.dump(data, f)
-        print(f"[{datetime.now()}] Dados salvos: {path}")
+        print(f"[{datetime.now()}] Dados persistidos em: {path}")
     except Exception as e:
         print(f"Erro ao salvar: {e}")
 
 async def data_handler(websocket):
-    print(f"Conectado com: {websocket.remote_address}")
+    print(f"Nova conexão estabelecida!")
     try:
         async for message in websocket:
             data = json.loads(message)
@@ -54,12 +53,12 @@ async def data_handler(websocket):
         pass
 
 async def main():
-    print(f"Iniciando Coletor Messor na porta {PORT}...")
+    print(f"Servidor Coletor Messor ativo na porta {PORT}...")
     async with websockets.serve(
         data_handler, 
         "0.0.0.0", 
         PORT, 
-        process_request=process_request, # Nossa função flexível
+        process_request=process_request,
         max_size=2**26
     ):
         await asyncio.Future()
