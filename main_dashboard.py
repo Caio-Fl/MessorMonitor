@@ -16,7 +16,7 @@ import pandas as pd
 st.set_page_config(layout="wide", page_title="Messor Monitor", page_icon="🐜")
 
 # No topo do arquivo, logo após os imports
-RENDER_PORT = int(os.environ.get("PORT", 9002))
+RENDER_PORT = int(os.environ.get("PORT", 443))
 
 
 
