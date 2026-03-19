@@ -4,17 +4,21 @@ import json
 import os
 from datetime import datetime
 
-# Porta injetada pelo Render
+# Porta dinâmica do Render
 PORT = int(os.environ.get("PORT", 9002))
 BASE_DIR = "DataBank"
 
-# Função corrigida para a versão estável do websockets
-async def process_request(request):
+# Versão ultra-compatível da função de verificação
+async def process_request(*args, **kwargs):
     """
-    Responde às verificações de 'está vivo' (Health Checks) do Render.
-    O Render envia requisições HTTP HEAD/GET para checar o servidor.
+    args[0] costuma ser a conexão ou o request dependendo da versão.
+    Usamos *args para evitar o erro de 'positional arguments'.
     """
-    # Verifica se não é um pedido de Upgrade para WebSocket (como o do Render)
+    # Tenta pegar o request independente da posição
+    request = args[1] if len(args) > 1 else args[0]
+    
+    # Se for uma requisição de monitoramento do Render (HEAD ou GET sem upgrade)
+    # respondemos apenas um OK para o serviço ficar online
     if request.headers.get("Upgrade") != "websocket":
         return request.respond(websockets.http.HTTPStatus.OK, "OK\n")
     return None
@@ -41,22 +45,21 @@ def save_raw_json(data):
         print(f"Erro ao salvar: {e}")
 
 async def data_handler(websocket):
-    print(f"Cliente conectado: {websocket.remote_address}")
+    print(f"Conectado com: {websocket.remote_address}")
     try:
         async for message in websocket:
             data = json.loads(message)
             save_raw_json(data)
     except Exception:
-        print("Conexão encerrada pelo cliente.")
+        pass
 
 async def main():
     print(f"Iniciando Coletor Messor na porta {PORT}...")
-    # O parâmetro process_request agora recebe o objeto request corretamente
     async with websockets.serve(
         data_handler, 
         "0.0.0.0", 
         PORT, 
-        process_request=process_request,
+        process_request=process_request, # Nossa função flexível
         max_size=2**26
     ):
         await asyncio.Future()
