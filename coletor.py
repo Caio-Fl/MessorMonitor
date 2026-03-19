@@ -1,26 +1,17 @@
-import asyncio
-import websockets
-import json
 import os
+import json
 from datetime import datetime
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+import uvicorn
 
-# Porta dinâmica do Render
-PORT = int(os.environ.get("PORT", 9002))
+app = FastAPI()
 BASE_DIR = "DataBank"
 
-async def process_request(*args):
-    """
-    Captura as verificações de saúde (Health Checks) do Render.
-    Retorna uma resposta HTTP 200 OK sem depender de métodos do objeto Request.
-    """
-    # Nas versões novas, o request é o segundo argumento se o primeiro for a conexão
-    request = args[1] if len(args) > 1 else args[0]
-    
-    # Se não for um pedido de WebSocket (Upgrade), responde HTTP 200
-    if request.headers.get("Upgrade") != "websocket":
-        # Retornamos (Status, Headers, Body)
-        return (websockets.http.HTTPStatus.OK, [], b"OK\n")
-    return None
+# 1. Resposta para o "Health Check" do Render (Cura o erro de HEAD/GET)
+@app.get("/")
+@app.head("/")
+async def health_check():
+    return Response(content="OK", status_code=200)
 
 def save_raw_json(data):
     try:
@@ -39,29 +30,28 @@ def save_raw_json(data):
         
         with open(path, 'w') as f:
             json.dump(data, f)
-        print(f"[{datetime.now()}] Dados persistidos em: {path}")
+        print(f"[{datetime.now()}] Dados salvos: {path}")
     except Exception as e:
         print(f"Erro ao salvar: {e}")
 
-async def data_handler(websocket):
-    print(f"Nova conexão estabelecida!")
+# 2. Rota WebSocket para o LabVIEW
+# Aceita tanto a raiz "/" quanto "/websockets/echo"
+@app.websocket("/")
+@app.websocket("/websockets/echo")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    print(f"Cliente LabVIEW conectado via WebSocket!")
     try:
-        async for message in websocket:
-            data = json.loads(message)
+        while True:
+            # Recebe o JSON do LabVIEW
+            data = await websocket.receive_json()
             save_raw_json(data)
-    except Exception:
-        pass
-
-async def main():
-    print(f"Servidor Coletor Messor ativo na porta {PORT}...")
-    async with websockets.serve(
-        data_handler, 
-        "0.0.0.0", 
-        PORT, 
-        process_request=process_request,
-        max_size=2**26
-    ):
-        await asyncio.Future()
+    except WebSocketDisconnect:
+        print("LabVIEW desconectado.")
+    except Exception as e:
+        print(f"Erro no WebSocket: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 9002))
+    # Roda o servidor Uvicorn (padrão para FastAPI)
+    uvicorn.run(app, host="0.0.0.0", port=port)
