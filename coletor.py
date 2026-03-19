@@ -4,14 +4,19 @@ import json
 import os
 from datetime import datetime
 
+# Porta injetada pelo Render
 PORT = int(os.environ.get("PORT", 9002))
 BASE_DIR = "DataBank"
 
-# Função para responder ao "Health Check" do Render
-async def process_request(path, request_headers):
-    # Se o Render enviar um HEAD ou GET comum (não-websocket), respondemos 200 OK
-    if "Upgrade" not in request_headers:
-        return websockets.http.HTTPStatus.OK, [], b"OK\n"
+# Função corrigida para a versão estável do websockets
+async def process_request(request):
+    """
+    Responde às verificações de 'está vivo' (Health Checks) do Render.
+    O Render envia requisições HTTP HEAD/GET para checar o servidor.
+    """
+    # Verifica se não é um pedido de Upgrade para WebSocket (como o do Render)
+    if request.headers.get("Upgrade") != "websocket":
+        return request.respond(websockets.http.HTTPStatus.OK, "OK\n")
     return None
 
 def save_raw_json(data):
@@ -31,22 +36,22 @@ def save_raw_json(data):
         
         with open(path, 'w') as f:
             json.dump(data, f)
-        print(f"[{datetime.now()}] Dados salvos com sucesso.")
+        print(f"[{datetime.now()}] Dados salvos: {path}")
     except Exception as e:
-        print(f"Erro ao salvar arquivo: {e}")
+        print(f"Erro ao salvar: {e}")
 
 async def data_handler(websocket):
-    print(f"Cliente conectado!")
+    print(f"Cliente conectado: {websocket.remote_address}")
     try:
         async for message in websocket:
             data = json.loads(message)
             save_raw_json(data)
-    except Exception as e:
-        print(f"Conexão encerrada.")
+    except Exception:
+        print("Conexão encerrada pelo cliente.")
 
 async def main():
-    print(f"Iniciando Coletor Inteligente na porta {PORT}...")
-    # O segredo está no 'process_request' para calar os erros do Render
+    print(f"Iniciando Coletor Messor na porta {PORT}...")
+    # O parâmetro process_request agora recebe o objeto request corretamente
     async with websockets.serve(
         data_handler, 
         "0.0.0.0", 
