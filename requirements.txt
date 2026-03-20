@@ -3,3 +3,5 @@ plotly
 pandas
 numpy
 websockets
+fastapi
+uvicorn
