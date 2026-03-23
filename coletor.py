@@ -79,7 +79,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # =========================
 @app.get("/data")
 def get_data(limit: int = 50):
-    result = {}
+    result = []   # ✅ agora é lista (formato correto)
 
     try:
         for root, dirs, files in os.walk(BASE_DIR):
@@ -92,14 +92,11 @@ def get_data(limit: int = 50):
                             lines = f.readlines()
                             last_lines = lines[-limit:]
 
-                            parsed = []
                             for line in last_lines:
                                 try:
-                                    parsed.append(json.loads(line))
+                                    result.append(json.loads(line))  # ✅ evento direto
                                 except:
                                     continue
-
-                            result[path] = parsed
 
                     except Exception as e:
                         print(f"Erro lendo {path}: {e}")
