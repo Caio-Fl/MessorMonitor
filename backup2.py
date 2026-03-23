@@ -11,7 +11,6 @@ import time
 import os
 from datetime import datetime
 import pandas as pd
-import requests
 
 # --- 1. CONFIGURAÇÃO DE PÁGINA E ESTÉTICA ---
 st.set_page_config(layout="wide", page_title="Messor Monitor", page_icon="🐜")
@@ -327,10 +326,6 @@ with st.sidebar:
         ws_ip = st.text_input("IP do Servidor", "0.0.0.0")
         ws_port = st.number_input("Porta", min_value=1024, max_value=65535, value=9002)
 
-    with st.expander("🌐 MESSOR API", expanded=True):
-        api_url = st.text_input("URL da API", "https://mmessor-api.onrender.com/data")
-        polling_interval = st.slider("Intervalo de Polling (s)", 0.5, 10.0, 1.0)
-
     #with st.expander("📡 REDE", expanded=False):
         #ws_ip = st.text_input("IP do Servidor", "0.0.0.0")
         # Agora a porta padrão será a fornecida pelo Render
@@ -354,39 +349,26 @@ if 'server_started' not in st.session_state:
     st.session_state.server_params = (ws_ip, ws_port)
     st.session_state.server_started = False
 
-def api_client(api_url, interval):
-    while True:
-        try:
-            response = requests.get(api_url, timeout=5)
+async def data_handler(websocket):
+    try:
+        if websocket.open:
+            await websocket.send(json.dumps({"status": "ready"}))
+        async for message in websocket:
+            if not shared_queue.full():
+                shared_queue.put(message)
+    except Exception: pass
 
-            if response.status_code == 200:
-                data_list = response.json()
-
-                # Se API retornar lista de mensagens
-                if isinstance(data_list, list):
-                    for data in data_list:
-                        if not shared_queue.full():
-                            shared_queue.put(json.dumps(data))
-
-                # Se retornar apenas 1 objeto
-                elif isinstance(data_list, dict):
-                    if not shared_queue.full():
-                        shared_queue.put(json.dumps(data_list))
-
-            else:
-                print(f"Erro API: {response.status_code}")
-
-        except Exception as e:
-            print(f"Erro API: {e}")
-
-        time.sleep(interval)
+def run_server(ip, port):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        start_server = websockets.serve(data_handler, ip, port, max_size=2**26)
+        loop.run_until_complete(start_server)
+        loop.run_forever()
+    except Exception: pass
 
 if not st.session_state.server_started:
-    thread = threading.Thread(
-        target=api_client,
-        args=(api_url, polling_interval),
-        daemon=True
-    )
+    thread = threading.Thread(target=run_server, args=(ws_ip, ws_port), daemon=True)
     thread.start()
     st.session_state.server_started = True
 
