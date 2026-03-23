@@ -328,7 +328,7 @@ with st.sidebar:
         ws_port = st.number_input("Porta", min_value=1024, max_value=65535, value=9002)
 
     with st.expander("🌐 MESSOR API", expanded=True):
-        api_url = st.text_input("URL da API", "https://mmessor-api.onrender.com/data")
+        api_url = st.text_input("URL da API", "https://messor-api.onrender.com/data")
         polling_interval = st.slider("Intervalo de Polling (s)", 0.5, 10.0, 1.0)
 
     #with st.expander("📡 REDE", expanded=False):
